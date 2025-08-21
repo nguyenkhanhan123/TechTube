@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_youtube/view/show_video_act.dart';
 
 import '../common_utils.dart';
 import '../db/db.dart';
@@ -28,7 +29,11 @@ class ItemVideo2 extends StatelessWidget {
           return;
         }
         DB().insertOrReplaceWatchedVideoWithEmail(email: email, videoId: id, title: title, thumbnailUrl: thumbnailUrl, channelName: channelName, publishedAt: publishedAt);
-      },
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ShowVideoAct(id: id)),
+        );
+        },
       borderRadius: BorderRadius.circular(10),
       child: Container(
         margin: const EdgeInsets.fromLTRB(5, 8, 5, 5),

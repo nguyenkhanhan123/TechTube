@@ -7,10 +7,14 @@ import '../viewmodel/search_viewmodel.dart';
 import 'item_video.dart';
 
 class SearchAct extends StatelessWidget {
+  final String? initialQuery;
+
+  const SearchAct({Key? key, this.initialQuery}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => SearchViewmodel(),
+      create: (_) => SearchViewmodel(initialQuery: initialQuery),
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -51,8 +55,7 @@ class SearchAct extends StatelessWidget {
                           icon: Icon(Icons.search, size: 28, color: Colors.black),
                         ),
                       ),
-                    )
-                    ,
+                    ),
                   ),
                 ],
               );
@@ -63,19 +66,18 @@ class SearchAct extends StatelessWidget {
           builder: (context, vm, child) {
             switch (vm.state) {
               case SearchState.suggestion:
-                if (vm.query.isEmpty){
+                if (vm.query.isEmpty) {
                   return ListView.builder(
                     itemCount: vm.suggestions.length,
                     itemBuilder: (context, index) {
                       final text = vm.suggestions[index];
                       return ItemRecentSearch(
                         text: text,
-                        onTap:() => vm.selectSuggestion(text),
+                        onTap: () => vm.selectSuggestion(text),
                       );
                     },
                   );
-                }
-                else{
+                } else {
                   return ListView.builder(
                     itemCount: vm.suggestions.length,
                     itemBuilder: (context, index) {
@@ -88,7 +90,9 @@ class SearchAct extends StatelessWidget {
                   );
                 }
               case SearchState.loading:
-                return Center(child: CircularProgressIndicator( color: Colors.blueAccent));
+                return Center(
+                  child: CircularProgressIndicator(color: Colors.blueAccent),
+                );
               case SearchState.result:
                 return ListView.builder(
                   itemCount: vm.videos.length,

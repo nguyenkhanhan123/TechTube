@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:my_youtube/model/req/get_suggestion_req.dart';
 import 'package:my_youtube/model/req/get_view_video_req.dart';
@@ -20,20 +19,10 @@ class SearchViewmodel extends ChangeNotifier {
   Timer? _debounce;
 
   List<String> _suggestions = [];
-
   List<Video> _videos = [];
 
   List<String> get suggestions => _suggestions;
-
-  set suggestions(List<String> value) {
-    _suggestions = value;
-  }
-
   List<Video> get videos => _videos;
-
-  set videos(List<Video> value) {
-    _videos = value;
-  }
 
   SearchState _state = SearchState.suggestion;
   SearchState get state => _state;
@@ -41,9 +30,16 @@ class SearchViewmodel extends ChangeNotifier {
   String _query = '';
   String get query => _query;
 
-  SearchViewModel() {
+  SearchViewmodel({String? initialQuery}) {
     focusNode.addListener(_onFocusChange);
-    updateQuery(' ');
+
+    if (initialQuery != null && initialQuery.trim().isNotEmpty) {
+      controller.text = initialQuery;
+      _query = initialQuery;
+      search();
+    } else {
+      updateQuery('');
+    }
   }
 
   void _onFocusChange() {
@@ -52,8 +48,7 @@ class SearchViewmodel extends ChangeNotifier {
     } else {
       if (_videos.isNotEmpty && controller.text.isNotEmpty) {
         _state = SearchState.result;
-      }
-      else{
+      } else {
         _state = SearchState.suggestion;
       }
     }
@@ -67,7 +62,7 @@ class SearchViewmodel extends ChangeNotifier {
     _debounce = Timer(const Duration(milliseconds: 300), () async {
       if (_query.isEmpty) {
         List<String> searches = await CommonUtils().getListPref('recent_keywords');
-        if(searches.isEmpty){
+        if (searches.isEmpty) {
           _suggestions = [
             'Flutter căn bản',
             'MVVM trong Flutter',
@@ -75,9 +70,8 @@ class SearchViewmodel extends ChangeNotifier {
             'Build UI với Column',
             'Provider vs Riverpod',
           ];
-        }
-        else{
-          _suggestions=searches;
+        } else {
+          _suggestions = searches;
         }
         _state = SearchState.suggestion;
         notifyListeners();
@@ -85,7 +79,7 @@ class SearchViewmodel extends ChangeNotifier {
         final _api = SuggestionApi();
         try {
           final results = await _api.getSuggestion(
-            GetSuggestionReq(client: 'firefox', ds: 'yt', q: _query)
+            GetSuggestionReq(client: 'firefox', ds: 'yt', q: _query),
           );
           _suggestions = results;
           _state = SearchState.suggestion;
@@ -98,7 +92,6 @@ class SearchViewmodel extends ChangeNotifier {
       }
     });
   }
-
 
   Future<void> search() async {
     if (_query.isEmpty) return;
@@ -115,7 +108,7 @@ class SearchViewmodel extends ChangeNotifier {
         part: 'snippet',
         q: _query,
         type: 'video',
-        maxResults: 30,
+        maxResults: 50,
         regionCode: 'VN',
         videoCategoryId: '28',
         key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
@@ -123,32 +116,27 @@ class SearchViewmodel extends ChangeNotifier {
     );
 
     final fetchedVideos = result.items;
-
     final videoIds = fetchedVideos.map((v) => v.id).toList();
 
-    print(videoIds);
-
     final statsRes = await api.viewVideo(
-      GetViewVideoReq(part: 'statistics', id: videoIds.join(','), key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw')
+      GetViewVideoReq(
+        part: 'statistics',
+        id: videoIds.join(','),
+        key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
+      ),
     );
 
     final Map<String, String> videoStatsMap = {
-      for (var item in statsRes.items)
-        item.id: item.viewCount ?? '0',
+      for (var item in statsRes.items) item.id: item.viewCount ?? '0',
     };
 
     final channelIds = fetchedVideos.map((v) => v.channelId).toSet().toList();
-
     final utils = CommonUtils();
     final String storageKey = 'cached_channels';
-
     final Map<String, ChannelInfo> infoMap = {};
 
     for (final id in channelIds) {
-
       final localChannel = await utils.getChannelById(storageKey, id);
-
-
       if (localChannel != null) {
         infoMap[id] = ChannelInfo(
           avatarUrl: localChannel.thumbnailUrl ?? '',
@@ -168,9 +156,7 @@ class SearchViewmodel extends ChangeNotifier {
 
         if (channelRes.items.isNotEmpty) {
           final item = channelRes.items.first;
-
           await utils.saveUniqueChannelToList(storageKey, item);
-
           infoMap[id] = ChannelInfo(
             avatarUrl: item.thumbnailUrl ?? '',
             title: item.title ?? '',
@@ -188,7 +174,7 @@ class SearchViewmodel extends ChangeNotifier {
         thumbnailUrl: item.thumbnailUrl ?? '',
         publishedAt: item.publishedAt ?? '',
         viewCount: videoStatsMap[item.id] ?? '0',
-        channelUrl:  infoMap[item.channelId]?.avatarUrl ?? '',
+        channelUrl: infoMap[item.channelId]?.avatarUrl ?? '',
         channelName: infoMap[item.channelId]?.title ?? '',
       );
     }).toList();

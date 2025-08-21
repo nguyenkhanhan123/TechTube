@@ -23,35 +23,66 @@ class _HomeFragmentState extends State<HomeFragment> {
   List<VideoItem> videos = [];
   Map<String, ChannelInfo> channelInfoMap = {};
   bool isLoading = true;
+  bool isLoadingMore = false;
+  String? nextPageToken;
+
+  late YoutubeApi api;
+  late GetVideoReq baseReq;
 
   @override
   void initState() {
     super.initState();
+    api = YoutubeApi();
+    baseReq = GetVideoReq(
+      part: 'snippet,statistics',
+      chart: 'mostPopular',
+      maxResults: 20,
+      regionCode: 'VN',
+      videoCategoryId: '28',
+      key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
+    );
     loadVideos();
   }
 
   Future<void> loadVideos() async {
-    final api = YoutubeApi();
-
-    final result = await api.getPopularVideos(
-      GetVideoReq(
-        part: 'snippet,statistics',
-        chart: 'mostPopular',
-        maxResults: 99,
-        regionCode: 'VN',
-        videoCategoryId: '28',
-        key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
-      ),
-    );
+    final result = await api.getPopularVideos(baseReq);
 
     final fetchedVideos = result.items;
-
     final channelIds = fetchedVideos.map((v) => v.channelId).toSet().toList();
+    final infoMap = await fetchChannelInfos(channelIds);
 
+    setState(() {
+      videos = fetchedVideos;
+      channelInfoMap = infoMap;
+      isLoading = false;
+      nextPageToken = result.nextPageToken;
+    });
+  }
+
+  Future<void> loadMoreVideos() async {
+    if (isLoadingMore || nextPageToken == null) return;
+
+    setState(() => isLoadingMore = true);
+
+    final nextReq = baseReq.copyWith(pageToken: nextPageToken);
+    final result = await api.getPopularVideos(nextReq);
+
+    final fetchedVideos = result.items;
+    final channelIds = fetchedVideos.map((v) => v.channelId).toSet().toList();
+    final infoMap = await fetchChannelInfos(channelIds);
+
+    setState(() {
+      videos.addAll(fetchedVideos);
+      channelInfoMap.addAll(infoMap);
+      nextPageToken = result.nextPageToken;
+      isLoadingMore = false;
+    });
+  }
+
+  Future<Map<String, ChannelInfo>> fetchChannelInfos(List<String> channelIds) async {
     final Map<String, ChannelInfo> infoMap = {};
-
     final utils = CommonUtils();
-    final String storageKey = 'cached_channels';
+    const String storageKey = 'cached_channels';
 
     for (final id in channelIds) {
       final localChannel = await utils.getChannelById(storageKey, id);
@@ -69,13 +100,12 @@ class _HomeFragmentState extends State<HomeFragment> {
           GetInfoChannelReq(
             part: 'snippet,statistics',
             id: id,
-            key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
+            key: baseReq.key,
           ),
         );
 
         if (channelRes.items.isNotEmpty) {
           final item = channelRes.items.first;
-
           await utils.saveUniqueChannelToList(storageKey, item);
 
           infoMap[id] = ChannelInfo(
@@ -87,37 +117,49 @@ class _HomeFragmentState extends State<HomeFragment> {
         infoMap[id] = ChannelInfo(avatarUrl: '', title: '');
       }
     }
-
-    setState(() {
-      videos = fetchedVideos;
-      channelInfoMap = infoMap;
-      isLoading = false;
-    });
+    return infoMap;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:
-          isLoading
-              ? Center(child: CircularProgressIndicator( color: Colors.blueAccent))
-              : ListView.builder(
-                itemCount: videos.length,
-                itemBuilder: (context, index) {
-                  final video = videos[index];
-                  final channel = channelInfoMap[video.channelId];
+      body: isLoading
+          ? Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+          : NotificationListener<ScrollNotification>(
+        onNotification: (scrollInfo) {
+          if (!isLoadingMore &&
+              scrollInfo.metrics.pixels == scrollInfo.metrics.maxScrollExtent) {
+            loadMoreVideos();
+          }
+          return false;
+        },
+        child: ListView.builder(
+          itemCount: videos.length + (isLoadingMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == videos.length) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
 
-                  return ItemVideo(
-                    id: video.id,
-                    title: video.title,
-                    thumbnailUrl: video.thumbnailUrl,
-                    publishedAt: video.publishedAt,
-                    viewCount: video.viewCount,
-                    channelUrl: channel?.avatarUrl ?? '',
-                    channelName: channel?.title ?? '',
-                  );
-                },
-              ),
+            final video = videos[index];
+            final channel = channelInfoMap[video.channelId];
+
+            return ItemVideo(
+              id: video.id,
+              title: video.title,
+              thumbnailUrl: video.thumbnailUrl,
+              publishedAt: video.publishedAt,
+              viewCount: video.viewCount,
+              channelUrl: channel?.avatarUrl ?? '',
+              channelName: channel?.title ?? '',
+            );
+          },
+        ),
+      ),
     );
   }
 }

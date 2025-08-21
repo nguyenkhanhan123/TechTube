@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:my_youtube/api/ai_api.dart';
 import 'package:my_youtube/model/req/send_message_req.dart';
+import 'package:my_youtube/view/search_act.dart';
 
 class AIAct extends StatefulWidget {
   @override
@@ -10,6 +12,7 @@ class AIAct extends StatefulWidget {
 class _AIActState extends State<AIAct> {
   final List<Map<String, String>> _messages = [];
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _visible = true;
 
   void _sendMessage() async {
@@ -17,38 +20,146 @@ class _AIActState extends State<AIAct> {
     if (text.isEmpty) return;
 
     setState(() {
-      _messages.add({'role': 'user', 'text': text});
+      _messages.add({'role': 'user', 'text': text, 'type': 'normal'});
     });
     _controller.clear();
+    _scrollToBottom();
 
     setState(() {
-      _messages.add({'role': 'ai', 'text': 'Đang xử lý...'});
+      _messages.add({'role': 'ai', 'text': 'Đang xử lý...', 'type': 'loading'});
     });
+    _scrollToBottom();
 
     final aiReply = await _getAIResponse(text);
 
     setState(() {
       _messages.removeLast();
-      _messages.add({'role': 'ai', 'text': aiReply});
-    });
 
+      if (text.startsWith('"') && text.endsWith('"')) {
+        _messages.add({'role': 'ai', 'text': aiReply, 'type': 'keyword'});
+      } else {
+        _messages.add({'role': 'ai', 'text': aiReply, 'type': 'normal'});
+      }
+    });
+    _scrollToBottom();
   }
 
   Future<String> _getAIResponse(String message) async {
-    try{
-    final api = AIApi();
-    final result = await api.sendMessage(
-      SendMessageReq(
-        model: 'deepseek/deepseek-r1-0528:free',
-        messages: [Messages(role: 'user', content: 'Hãy chuyển đổi câu hỏi tự nhiên sau : "$message" thành từ khóa tìm kiếm YouTube phù hợp nhất. Nếu như nó không liên quan đến công nghệ thì hãy trả lại cho tôi là "Câu hỏi không liên quan đến chủ đề của ứng dung!" còn nếu có thì hãy trả lại duy nhất từ khóa và không nói gì thêm.')],
-      ),
-    );
-    final content = result.content;
-    return content;
-    }
-    catch(e) {
+    try {
+      final api = AIApi();
+
+      if (message.startsWith('"') && message.endsWith('"')) {
+        final result = await api.sendMessage(
+          SendMessageReq(
+            model: 'deepseek/deepseek-r1-0528:free',
+            messages: [
+              Messages(
+                role: 'user',
+                content:
+                'Hãy chuyển đổi câu hỏi tự nhiên sau : $message thành từ khóa tìm kiếm YouTube phù hợp nhất. '
+                    'Nếu như câu hỏi không liên quan đến chủ đề công nghệ thì hãy trả lại cho tôi là '
+                    '"Câu hỏi không liên quan đến chủ đề của ứng dung!" '
+                    'còn nếu có thì hãy trả lại duy nhất từ khóa và đóng gói trong dấu * * và không được có thêm các câu trả lời gì thêm.',
+              ),
+            ],
+          ),
+        );
+        return result.content;
+      } else {
+        final result = await api.sendMessage(
+          SendMessageReq(
+            model: 'deepseek/deepseek-r1-0528:free',
+            messages: [
+              Messages(role: 'user', content: message),
+            ],
+          ),
+        );
+        return result.content;
+      }
+    } catch (e) {
       return 'Không thể kết nối đến server.';
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Widget _buildMessageText(
+      String text, bool isKeyword, bool isAI, BuildContext context) {
+    final regex = RegExp(r'\*(.*?)\*');
+    final matches = regex.allMatches(text);
+
+    if (matches.isEmpty) {
+      return SelectableText(
+        text,
+        style: TextStyle(
+          fontWeight: isKeyword ? FontWeight.bold : FontWeight.normal,
+          color: isKeyword ? Colors.blue.shade900 : Colors.black,
+          fontSize: isKeyword ? 16 : 14,
+        ),
+      );
+    }
+
+    List<TextSpan> spans = [];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: TextStyle(color: Colors.black, fontSize: 14),
+        ));
+      }
+
+      final highlighted = match.group(1)!;
+      spans.add(
+        TextSpan(
+          text: highlighted,
+          style: TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            decoration: TextDecoration.underline,
+          ),
+          recognizer: isAI
+              ? (TapGestureRecognizer()
+            ..onTap = () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SearchAct(initialQuery:highlighted)),
+              );
+            })
+              : null,
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: TextStyle(color: Colors.black, fontSize: 14),
+      ));
+    }
+
+    return RichText(text: TextSpan(children: spans));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,8 +168,6 @@ class _AIActState extends State<AIAct> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Row(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Image.asset('assets/images/ic_logo.png', height: 38),
             SizedBox(width: 12),
@@ -92,7 +201,7 @@ class _AIActState extends State<AIAct> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Hãy đặt ra câu hỏi của bạn, AI để chuyển đổi câu hỏi tự nhiên thành từ khóa tìm kiếm trong TechTube!',
+                      'Hãy đặt ra câu hỏi của bạn, AI để chuyển đổi câu hỏi tự nhiên thành từ khóa tìm kiếm trong TechTube khi bạn nhắn tin đóng gói bằng dấu " "! Còn không cứ nhắn tin với AI như bình thươờng nhé!',
                       style: TextStyle(color: Colors.blue.shade900),
                     ),
                   ),
@@ -110,13 +219,16 @@ class _AIActState extends State<AIAct> {
           ),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               itemCount: _messages.length,
               itemBuilder: (_, index) {
                 final msg = _messages[index];
                 final isUser = msg['role'] == 'user';
+                final isKeyword = msg['type'] == 'keyword';
+
                 return Container(
                   alignment:
-                      isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  isUser ? Alignment.centerRight : Alignment.centerLeft,
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Container(
                     padding: EdgeInsets.all(12),
@@ -124,7 +236,12 @@ class _AIActState extends State<AIAct> {
                       color: isUser ? Colors.blue[200] : Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(msg['text'] ?? ''),
+                    child: _buildMessageText(
+                      msg['text'] ?? '',
+                      isKeyword,
+                      !isUser, // chỉ cho AI clickable
+                      context,
+                    ),
                   ),
                 );
               },
@@ -132,7 +249,8 @@ class _AIActState extends State<AIAct> {
           ),
           Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
             child: Row(
               children: [
                 Expanded(
@@ -144,12 +262,12 @@ class _AIActState extends State<AIAct> {
                       hintText: 'Viết câu hỏi của bạn vào đây!',
                       filled: true,
                       fillColor: Colors.white,
-                      border: UnderlineInputBorder(), // KHÔI PHỤC gạch chân
+                      border: UnderlineInputBorder(),
                       focusedBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: Colors.blue, width: 2),
                       ),
                     ),
-                  )
+                  ),
                 ),
                 IconButton(icon: Icon(Icons.send), onPressed: _sendMessage),
               ],

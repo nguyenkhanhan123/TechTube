@@ -46,7 +46,7 @@ class _VideoWatchedFragState extends State<VideoWatchedFrag> {
               : videos.isEmpty
               ? Center(child: Text("Bạn chưa xem video nào"))
               : RefreshIndicator(
-                onRefresh: loadVideos, // Vuốt xuống để load lại
+                onRefresh: loadVideos,
                 child: ListView.builder(
                   itemCount: videos.length,
                   itemBuilder: (context, index) {

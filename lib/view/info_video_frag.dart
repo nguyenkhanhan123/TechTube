@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:my_youtube/common_utils.dart';
 import 'package:my_youtube/model/res/get_info_video_res.dart';
+import 'package:my_youtube/view/show_video_act.dart';
 
+import '../api/youtube_api.dart';
+import '../model/req/get_info_channel_req.dart';
 import '../model/res/get_info_channel_res.dart';
+import 'info_channel_activity.dart';
 
 class InfoVideoFrag extends StatefulWidget {
   final InfoVideoItem item;
+  final VoidCallback? onNavigate;
 
-  const InfoVideoFrag({super.key, required this.item});
+  const InfoVideoFrag({super.key, required this.item, this.onNavigate});
 
   @override
   _InfoVideoFragState createState() => _InfoVideoFragState();
@@ -15,7 +20,7 @@ class InfoVideoFrag extends StatefulWidget {
 
 class _InfoVideoFragState extends State<InfoVideoFrag> {
   final String storageKey = 'cached_channels';
-  late ChannelInfoItem localChannel;
+  ChannelInfoItem? localChannel;
   bool _isLoadingChannel = true;
 
   @override
@@ -25,13 +30,47 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
   }
 
   Future<void> _loadChannel() async {
-    final channel = await CommonUtils().getChannelById(
+    final utils = CommonUtils();
+    final api = YoutubeApi();
+
+    final cachedChannel = await utils.getChannelById(
       storageKey,
       widget.item.channelId,
     );
-    if (channel != null) {
+
+    if (cachedChannel != null) {
       setState(() {
-        localChannel = channel;
+        localChannel = cachedChannel;
+        _isLoadingChannel = false;
+      });
+      return;
+    }
+
+    try {
+      final res = await api.getInfoChannel(
+        GetInfoChannelReq(
+          part: 'snippet,statistics',
+          id: widget.item.channelId,
+          key: 'AIzaSyCVqRLteCYu79ff-lhVejJnJO9wRmScWmw',
+        ),
+      );
+
+      if (res.items.isNotEmpty) {
+        final item = res.items.first;
+
+        await utils.saveUniqueChannelToList(storageKey, item);
+
+        setState(() {
+          localChannel = item;
+          _isLoadingChannel = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingChannel = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
         _isLoadingChannel = false;
       });
     }
@@ -43,12 +82,15 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    if (localChannel == null) {
+      return const Center(child: Text("Không tìm thấy thông tin kênh"));
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
           Text(
             widget.item.title,
             maxLines: 2,
@@ -66,7 +108,7 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundImage: NetworkImage(localChannel.thumbnailUrl),
+                backgroundImage: NetworkImage(localChannel!.thumbnailUrl ?? ''),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -74,7 +116,7 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      localChannel.title,
+                      localChannel!.title ?? '',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -83,7 +125,7 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${formatNumber(localChannel.subscriberCount)} người đăng ký',
+                      '${formatNumber(localChannel!.subscriberCount)} người đăng ký',
                       style: const TextStyle(
                         fontSize: 12,
                         fontFamily: 'Nunito',
@@ -94,11 +136,12 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
                 ),
               ),
               OutlinedButton(
-                onPressed: null,
+                onPressed: widget.onNavigate,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.blue),
                   backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -113,7 +156,6 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
                   ),
                 ),
               ),
-
             ],
           ),
 
@@ -139,36 +181,29 @@ class _InfoVideoFragState extends State<InfoVideoFrag> {
 
           const SizedBox(height: 16),
 
-          // Tags
           if (widget.item.tags.isNotEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children:
-                  widget.item.tags.map((tag) {
-                    return GestureDetector(
-                      onTap: null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Text(
-                          '#$tag',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontFamily: 'Nunito',
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+              children: widget.item.tags.map((tag) {
+                return Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'Nunito',
+                      color: Colors.black87,
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
 
           const SizedBox(height: 16),

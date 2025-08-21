@@ -5,6 +5,7 @@ class GetVideoReq {
   final String regionCode;
   final String videoCategoryId;
   final String key;
+  final String? pageToken;
 
   GetVideoReq({
     required this.part,
@@ -13,10 +14,11 @@ class GetVideoReq {
     required this.regionCode,
     required this.videoCategoryId,
     required this.key,
+    this.pageToken,
   });
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'part': part,
       'chart': chart,
       'maxResults': maxResults,
@@ -24,5 +26,23 @@ class GetVideoReq {
       'videoCategoryId': videoCategoryId,
       'key': key,
     };
+
+    if (pageToken != null) {
+      map['pageToken'] = pageToken!;
+    }
+
+    return map;
+  }
+
+  GetVideoReq copyWith({String? pageToken}) {
+    return GetVideoReq(
+      part: part,
+      chart: chart,
+      maxResults: maxResults,
+      regionCode: regionCode,
+      videoCategoryId: videoCategoryId,
+      key: key,
+      pageToken: pageToken ?? this.pageToken,
+    );
   }
 }

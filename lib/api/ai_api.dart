@@ -20,7 +20,7 @@ class AIApi {
         data: req.toMap(),
       options: Options(
         headers: {
-          'Authorization': 'Bearer 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',
+          'Authorization': 'Bearer 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',
           'Content-Type': 'application/json',
         }
       )
