@@ -1,16 +1,54 @@
-# my_youtube
+# 🎬 TechTube Mobile Application
 
-A new Flutter project.
+## 📌 Giới thiệu
+**TechTube** là ứng dụng di động xem video, cho phép người dùng tìm kiếm, xem video, quản lý tài khoản và kênh cá nhân. Ứng dụng tập trung vào trải nghiệm người dùng với khả năng tìm kiếm thông minh, gợi ý video và quản lý nội dung cá nhân.
 
-## Getting Started
+Dự án được phát triển trong quá trình học tập/thực tập nhằm áp dụng kiến thức về phát triển ứng dụng di động và xây dựng hệ thống hoàn chỉnh từ giao diện đến xử lý dữ liệu.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🚀 Chức năng chính
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 🔐 Quản lý phiên đăng nhập
+- Đăng nhập / Đăng xuất
+- Lưu và quản lý token người dùng
+- Duy trì phiên đăng nhập
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### 🔎 Tìm kiếm video
+- Gợi ý từ khóa tìm kiếm
+- Tìm kiếm theo từ khóa
+- Lưu lịch sử tìm kiếm
+- Xem lại lịch sử tìm kiếm
+
+### 🤖 Xử lý ngôn ngữ tự nhiên
+- Chuyển câu hỏi tự nhiên thành từ khóa tìm kiếm video
+
+### 🔥 Video thịnh hành
+- Hiển thị danh sách video đang thịnh hành
+
+### 👤 Quản lý tài khoản
+- Xem danh sách video đã xem
+- Quản lý video yêu thích
+
+### 📺 Kênh của tôi
+- Xem danh sách video đã đăng
+- Xem dữ liệu kênh cá nhân
+- Quản lý danh sách phát của tôi
+
+### 🌐 Kênh công khai
+- Xem thông tin kênh người dùng khác
+- Xem video đã đăng
+- Xem danh sách phát
+
+### ⭐ Kênh đã đăng ký
+- Xem danh sách các kênh đã theo dõi
+
+### ▶️ Chi tiết video
+- Phát video
+- Hiển thị thông tin video
+- Xem & đăng bình luận
+- Gợi ý video tương tự
+
+---
+Xem giao diện chi tiết trong báo cáo.
+---
